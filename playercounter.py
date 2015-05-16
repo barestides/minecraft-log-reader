@@ -18,6 +18,7 @@ players = []
 start_time = time.time()
 
 zed = 0
+bones = 0
 
 # For storing each line in a file in a list
 lines = []
@@ -53,8 +54,13 @@ for file in files:
             if '<' not in line and 'true' not in line and 'Pigman' not in line:
                 #print(line)
                 zed = zed + 1
+        if re.search(' Skeleton', line):
+            if '<' not in line and 'Wither' not in line:
+                #print(line)
+                bones = bones + 1
 
 end_time = time.time()
 print('Lines: ', count)
 print('Zombie Kill Count: ', zed)
+print('Skeleton Kill Count: ', bones)
 
