@@ -3,6 +3,7 @@ import gzip
 import glob
 import os
 import time
+import codecs
 
 logsPath = './sample-logs/*.log.gz'
 files = sorted(glob.glob(logsPath))
@@ -23,7 +24,17 @@ skel_kills = 0
 # For storing each line in a file in a list
 lines = []
 
-def scan_file(lines,file):
+def compress_utf8_file(fullpath, delete_original = True):
+    """Compress a UTF-8 encoded file using GZIP compression named *.gz. If `delete_original` is `True` [default: True],
+    the original file specified by `delete_original` is removed after compression."""
+    with codecs.open(fullpath, 'r', 'utf-8') as fin:
+        with gzip.open(fullpath + '.gz', 'wb') as fout:
+            for line in fin:
+                fout.write(line.encode('utf-8'))
+    if delete_original:
+        os.remove(fullpath)
+
+def scan_file(lines, file):
 
     for line in lines:
 
@@ -43,32 +54,36 @@ def scan_file(lines,file):
                     popular_time[hour_joined] += 1
                     # print(player.ljust(20), date_joined, time_joined)
 
-        if re.search(' Zombie', line):
-            if '<' not in line and 'true' not in line and 'Pigman' not in line:
-                print(line)
-                # I'm sure this is bad practice, as global vars are bad, I'll fix it later maybe
-                global zombie_kills
-                zombie_kills += 1
-        if re.search(' Skeleton', line):
-            if '<' not in line and 'Wither' not in line:
-                print(line)
-                global skel_kills
-                skel_kills += 1
+        # If it isn't a chat message:
+        if '<' not in line:
+            if re.search(' Zombie$', line):
+                    # print(line)
+                    # I'm sure this is bad practice, as global vars are bad, I'll fix it later maybe
+                    global zombie_kills
+                    zombie_kills += 1
+            if re.search(' Skeleton$', line):
+                if 'Wither' not in line:
+                    # print(line)
+                    global skel_kills
+                    skel_kills += 1
 
         # For writing all chat messages to a file
 
-        # if re.search(r'^\[\d\d:\d\d:\d\d\] \[Server thread/INFO\]:.*<.*>.*$', line):
-        #     time_stamp = line[:10]
-        #     player_name = line[line.find('INFO]: <') + 8 : line.find('>')]
-        #     message_content = line[line.find('>') + 2:]
-        #     output_file = open('chat-history.txt',mode='a',encoding='utf-8')
-        #     output_file.write(time_stamp)
-        #     output_file.write('\t')
-        #     output_file.write(player_name)
-        #     output_file.write(':')
-        #     output_file.write(message_content)
-        #     output_file.write('\n')
-        #     output_file.close()
+        if re.search(r'^\[\d\d:\d\d:\d\d\] \[Server thread/INFO\]:( \[.{1,20}\] | )<..*>.*$', line):
+            time_stamp = line[:10]
+            player_name = line[line.find('<') + 1: line.find('>')]
+            message_content = line[line.find('>') + 2:]
+            output_file = open('chat-history.txt','a',encoding='utf-8')
+            output_file.write(date_stamp)
+            output_file.write('  ')
+            output_file.write(time_stamp)
+            output_file.write('\t')
+            output_file.write(player_name)
+            output_file.write(': ')
+            output_file.write(message_content)
+            output_file.write('\n')
+            output_file.close()
+
 
 def read_files(files):
 
@@ -84,7 +99,9 @@ def read_files(files):
 
 read_files(files)
 
+compress_utf8_file('./chat-history.txt')
+
 end_time = time.time()
 print('Zombie Kill Count: ', zombie_kills)
 print('Skeleton Kill Count: ', skel_kills)
-print('Players: ', len(players), '\nTotal time: ', end_time-start_time)
+print('Players: ', len(players), '\nTotal time: ', '%.4f'%(end_time-start_time))
