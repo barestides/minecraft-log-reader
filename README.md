@@ -1,2 +1,5 @@
-not really sure what's supposed to go in here but github recommended having one
+A script designed to pull interesting information from the server logs.
+Currently tracks:
+* player logins (time of day)
+* number of players killed by zombies
 
