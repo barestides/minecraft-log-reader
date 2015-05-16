@@ -4,7 +4,7 @@ import glob
 import os
 import time
 
-logsPath = '/home/braden/Documents/ArcaneSurvival/logs/*.log.gz'
+logsPath = './sample-logs/*.log.gz'
 files = sorted(glob.glob(logsPath))
 
 # this dict is for storing the number of players that joined each hour
@@ -16,6 +16,9 @@ popular_time = {'00': 0, '01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 0, '
 players = []
 
 start_time = time.time()
+
+zed = 0
+bones = 0
 
 # For storing each line in a file in a list
 lines = []
@@ -47,7 +50,17 @@ for file in files:
         # if re.search(r'^\[\d\d:\d\d:\d\d\] \[Server thread/INFO\]: <.*>.*$', line):
         #     player_name = line[line.find('INFO]: <') + 8 : line.find('>')]
         #     print(player_name)
+        if re.search(' Zombie', line):
+            if '<' not in line and 'true' not in line and 'Pigman' not in line:
+                #print(line)
+                zed = zed + 1
+        if re.search(' Skeleton', line):
+            if '<' not in line and 'Wither' not in line:
+                #print(line)
+                bones = bones + 1
 
 end_time = time.time()
 print('Lines: ', count)
+print('Zombie Kill Count: ', zed)
+print('Skeleton Kill Count: ', bones)
 
