@@ -4,7 +4,7 @@ import glob
 import os
 import time
 import codecs
-
+import operator
 
 all_logs_path= '/home/braden/Documents/ArcaneSurvival/logs/*.log.gz'
 sample_logs_path = './sample-logs/*.log.gz'
@@ -22,10 +22,11 @@ chat_output_lines = []
 
 start_time = time.time()
 
+player_chat_count = {}
+
 zombie_kills = 0
 skel_kills = 0
 chat_line_count = 0
-
 # For storing each line in a file in a list
 lines = []
 
@@ -57,6 +58,8 @@ def scan_file(lines, file):
             player = line[line.find('UUID') + 15:line.find(' is ')]
             if player not in players:  # if player isn't already in list
                     players.append(player)
+                    global player_chat_count
+                    player_chat_count.fromkeys(players,0)
                     hour_joined = time_stamp[1:3]
                     popular_time[hour_joined] += 1
                     # print(player.ljust(20), date_joined, time_joined)
@@ -80,15 +83,17 @@ def scan_file(lines, file):
             time_stamp = line[:10]
             player_name = line[line.find('<') + 1: line.find('>')]
             message_content = line[line.find('>') + 2:]
-            if player_name != 'Staff' or player_name != 'S':
-                print(player_name)
+            if player_name != 'Staff' and player_name != 'S':
                 global chat_line_count
                 chat_line_count += 1
                 global chat_output_lines
                 chat_line = date_stamp +  ' ' + time_stamp + '\t' + player_name + ': ' + message_content + '\n'
+                global player_chat_count
+                if player_name not in player_chat_count.keys():
+                    player_chat_count[player_name] = 0
+                player_chat_count[player_name] += 1
                 chat_output_lines.append(chat_line)
-            else:
-                print('It didn\'t work yo\n', line)
+
 
 def read_files(files):
 
@@ -102,6 +107,7 @@ def read_files(files):
 
         scan_file(lines,file)
 
+
 def write_to_file(output_lines):
     output_file = open('chat-history.txt', 'a', encoding='utf-8')
     for chat_line in output_lines:
@@ -114,8 +120,11 @@ write_to_file(chat_output_lines)
 
 compress_utf8_file('./chat-history.txt')
 
+sorted_players_by_chat_messages = sorted(player_chat_count.items(), key=operator.itemgetter(1), reverse=True)
+
 end_time = time.time()
 print('Zombie Kill Count: ', zombie_kills)
 print('Skeleton Kill Count: ', skel_kills)
 print('Total chat line count: ', chat_line_count)
+print('\n', sorted_players_by_chat_messages)
 print('Players: ', len(players), '\nTotal time: ', '%.4f'%(end_time-start_time))
