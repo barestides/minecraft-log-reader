@@ -5,8 +5,10 @@ import os
 import time
 import codecs
 
-logsPath = './sample-logs/*.log.gz'
-files = sorted(glob.glob(logsPath))
+
+all_logs_path= '/home/braden/Documents/ArcaneSurvival/logs/*.log.gz'
+sample_logs_path = './sample-logs/*.log.gz'
+files = sorted(glob.glob(all_logs_path))
 
 # this dict is for storing the number of players that joined each hour
 popular_time = {'00': 0, '01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 0, '07': 0, '08': 0, '09': 0, '10': 0,
@@ -16,13 +18,17 @@ popular_time = {'00': 0, '01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 0, '
 # stores all players that have logged on
 players = []
 
+chat_output_lines = []
+
 start_time = time.time()
 
 zombie_kills = 0
 skel_kills = 0
+chat_line_count = 0
 
 # For storing each line in a file in a list
 lines = []
+
 
 def compress_utf8_file(fullpath, delete_original = True):
     """Compress a UTF-8 encoded file using GZIP compression named *.gz. If `delete_original` is `True` [default: True],
@@ -33,6 +39,7 @@ def compress_utf8_file(fullpath, delete_original = True):
                 fout.write(line.encode('utf-8'))
     if delete_original:
         os.remove(fullpath)
+
 
 def scan_file(lines, file):
 
@@ -69,21 +76,19 @@ def scan_file(lines, file):
 
         # For writing all chat messages to a file
 
-        if re.search(r'^\[\d\d:\d\d:\d\d\] \[Server thread/INFO\]:( \[.{1,20}\] | )<..*>.*$', line):
+        if re.search(r'^.*/INFO\]:( \[.{1,20}\] | )<..*>.*$', line):
             time_stamp = line[:10]
             player_name = line[line.find('<') + 1: line.find('>')]
             message_content = line[line.find('>') + 2:]
-            output_file = open('chat-history.txt','a',encoding='utf-8')
-            output_file.write(date_stamp)
-            output_file.write('  ')
-            output_file.write(time_stamp)
-            output_file.write('\t')
-            output_file.write(player_name)
-            output_file.write(': ')
-            output_file.write(message_content)
-            output_file.write('\n')
-            output_file.close()
-
+            if player_name != 'Staff' or player_name != 'S':
+                print(player_name)
+                global chat_line_count
+                chat_line_count += 1
+                global chat_output_lines
+                chat_line = date_stamp +  ' ' + time_stamp + '\t' + player_name + ': ' + message_content + '\n'
+                chat_output_lines.append(chat_line)
+            else:
+                print('It didn\'t work yo\n', line)
 
 def read_files(files):
 
@@ -97,11 +102,20 @@ def read_files(files):
 
         scan_file(lines,file)
 
+def write_to_file(output_lines):
+    output_file = open('chat-history.txt', 'a', encoding='utf-8')
+    for chat_line in output_lines:
+        output_file.write(chat_line)
+    output_file.close()
+
 read_files(files)
+
+write_to_file(chat_output_lines)
 
 compress_utf8_file('./chat-history.txt')
 
 end_time = time.time()
 print('Zombie Kill Count: ', zombie_kills)
 print('Skeleton Kill Count: ', skel_kills)
+print('Total chat line count: ', chat_line_count)
 print('Players: ', len(players), '\nTotal time: ', '%.4f'%(end_time-start_time))
