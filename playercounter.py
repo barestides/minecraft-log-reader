@@ -19,16 +19,13 @@ popular_time = {'00': 0, '01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 0, '
 players = []
 
 chat_output_lines = []
-
+chat_output_lines
 start_time = time.time()
 
 player_chat_count = {}
+command_count = {}
 
-zombie_kills = 0
-skel_kills = 0
 chat_line_count = 0
-# For storing each line in a file in a list
-lines = []
 
 
 def compress_utf8_file(fullpath, delete_original = True):
@@ -42,6 +39,35 @@ def compress_utf8_file(fullpath, delete_original = True):
         os.remove(fullpath)
 
 
+def command_checker(line):
+    # checks commands made by players
+    command_checker.command_count = {}
+    slashindex = line.rfind('/')
+    if re.search('/ *$',line[slashindex:])
+    command = line[slashindex+1:slashindex + line[slashindex:].find(' ')]
+
+    if command is not '' and command != 'INFO]:':
+        command_count[command] = command_count.get(command, 0) + 1
+
+
+def death_checker(line):
+    #check for player deaths and their causes
+    if re.search('Zombie$', line):
+        # I'm sure this is bad practice, as global vars are bad, I'll fix it later maybe
+        death_checker.zombie_kills += 1
+    elif re.search('Skeleton$', line):
+        if 'Wither' not in line:
+            death_checker.skel_kills += 1
+    elif re.search('place$',line) or re.search('hard$', line):
+        death_checker.fall_kills +=1
+    elif re.search('in lava$', line):
+        death_checker.lava_kills += 1
+
+death_checker.zombie_kills = 0
+death_checker.skel_kills = 0
+death_checker.fall_kills = 0
+death_checker.lava_kills = 0
+
 def scan_file(lines, file):
 
     for line in lines:
@@ -49,8 +75,24 @@ def scan_file(lines, file):
         file_name = os.path.basename(file)
         date_stamp = file_name[:-7]
 
+        # Check for chat message
+        if re.search(r'^.*/INFO\]:( \[.{1,20}\] | )<..*>.*$', line):
+            time_stamp = line[:10]
+            player_name = line[line.find('<') + 1: line.find('>')]
+            message_content = line[line.find('>') + 2:]
+            if player_name != 'Staff' and player_name != 'S':
+                global chat_line_count
+                chat_line_count += 1
+                global chat_output_lines
+                chat_line = date_stamp + ' ' + time_stamp + '\t' + player_name + ': ' + message_content + '\n'
+                global player_chat_count
+                if player_name not in player_chat_count.keys():
+                    player_chat_count[player_name] = 0
+                player_chat_count[player_name] += 1
+                chat_output_lines.append(chat_line)
+
         # regex to look for lines where player joins server
-        if re.search(r'^\[\d\d:\d\d:\d\d\] \[User Authenticator #\d{1,10}/INFO\]: UUID of player.*$', line):
+        elif re.search(r'^.*Authenticator #\d{1,10}/INFO\]: UUID of player.*$', line):
 
             time_stamp = line[:10]
 
@@ -64,35 +106,13 @@ def scan_file(lines, file):
                     popular_time[hour_joined] += 1
                     # print(player.ljust(20), date_joined, time_joined)
 
-        # If it isn't a chat message:
-        if '<' not in line:
-            if re.search(' Zombie$', line):
-                    # print(line)
-                    # I'm sure this is bad practice, as global vars are bad, I'll fix it later maybe
-                    global zombie_kills
-                    zombie_kills += 1
-            if re.search(' Skeleton$', line):
-                if 'Wither' not in line:
-                    # print(line)
-                    global skel_kills
-                    skel_kills += 1
+        #check if it's a command
+        elif re.search('issued',line):
+            command_checker(line)
 
-        # For writing all chat messages to a file
-
-        if re.search(r'^.*/INFO\]:( \[.{1,20}\] | )<..*>.*$', line):
-            time_stamp = line[:10]
-            player_name = line[line.find('<') + 1: line.find('>')]
-            message_content = line[line.find('>') + 2:]
-            if player_name != 'Staff' and player_name != 'S':
-                global chat_line_count
-                chat_line_count += 1
-                global chat_output_lines
-                chat_line = date_stamp +  ' ' + time_stamp + '\t' + player_name + ': ' + message_content + '\n'
-                global player_chat_count
-                if player_name not in player_chat_count.keys():
-                    player_chat_count[player_name] = 0
-                player_chat_count[player_name] += 1
-                chat_output_lines.append(chat_line)
+        # If it isn't a chat message, check for player deaths:
+        elif '<' not in line:
+            death_checker(line)
 
 
 def read_files(files):
@@ -105,26 +125,49 @@ def read_files(files):
             with gzip.open(file, 'rt', encoding='utf-8') as log_file:
                 lines = list(log_file)
 
-        scan_file(lines,file)
+        scan_file(lines, file)
 
 
-def write_to_file(output_lines):
-    output_file = open('chat-history.txt', 'a', encoding='utf-8')
+def write_to_file(output_lines, filename):
+    output_file = open(filename, 'a', encoding='utf-8')
     for chat_line in output_lines:
         output_file.write(chat_line)
     output_file.close()
 
+
+def sort_dict(dictionary):
+    return sorted(dictionary.items(), key=operator.itemgetter(1), reverse=True)
+
+def print_top_10(list_of_tuples, spacing):
+    count = 1
+    for item in list_of_tuples[:10]:
+        print(str(count).ljust(3), item[0].ljust(spacing), item[1])
+        count += 1
+
 read_files(files)
 
-write_to_file(chat_output_lines)
-
+write_to_file(chat_output_lines, 'chat-history.txt')
 compress_utf8_file('./chat-history.txt')
 
-sorted_players_by_chat_messages = sorted(player_chat_count.items(), key=operator.itemgetter(1), reverse=True)
+sorted_join_times = sort_dict(popular_time)
+sorted_players_by_chat_messages = sort_dict(player_chat_count)
+sorted_commands = sort_dict(command_count)
 
 end_time = time.time()
-print('Zombie Kill Count: ', zombie_kills)
-print('Skeleton Kill Count: ', skel_kills)
+
+print('\nMost popular join hours:\n')
+for join_time in sorted_join_times:
+    print(join_time[0], '  ', join_time[1])
+
+print('\nMost chat messages:\n')
+print_top_10(sorted_players_by_chat_messages, 20)
+
+print('\nMost common commands:\n')
+print_top_10(sorted_commands, 0)
+
+print('\nZombie Kill Count: ', death_checker.zombie_kills)
+print('Skeleton Kill Count: ', death_checker.skel_kills)
+print('Fall Kill Count: ', death_checker.fall_kills)
+print('Lava Kill Count: ', death_checker.lava_kills)
 print('Total chat line count: ', chat_line_count)
-print('\n', sorted_players_by_chat_messages)
-print('Players: ', len(players), '\nTotal time: ', '%.4f'%(end_time-start_time))
+print('Players: ', len(players), '\nTotal time: ', '%.4f' % (end_time-start_time))
