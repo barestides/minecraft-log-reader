@@ -6,9 +6,8 @@ import time
 import codecs
 import operator
 
-all_logs_path= '/home/braden/Documents/ArcaneSurvival/logs/*.log.gz'
+all_logs_path = '/home/braden/Documents/ArcaneSurvival/logs/*.log.gz'
 sample_logs_path = './sample-logs/*.log.gz'
-files = sorted(glob.glob(all_logs_path))
 
 # this dict is for storing the number of players that joined each hour
 popular_time = {'00': 0, '01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 0, '07': 0, '08': 0, '09': 0, '10': 0,
@@ -27,7 +26,7 @@ command_count = {}
 chat_line_count = 0
 
 
-def compress_utf8_file(fullpath, delete_original = True):
+def compress_utf8_file(fullpath, delete_original=True):
     """Compress a UTF-8 encoded file using GZIP compression named *.gz. If `delete_original` is `True` [default: True],
     the original file specified by `delete_original` is removed after compression."""
     with codecs.open(fullpath, 'r', 'utf-8') as fin:
@@ -39,20 +38,24 @@ def compress_utf8_file(fullpath, delete_original = True):
 
 
 def command_checker(line):
-    # checks commands made by players
+    """ This function checks a line that has a command in it and calculates how many times each command was run on the
+    server. """
     command_checker.command_count = {}
     slashindex = line.rfind('/')
-    if re.search('/.* .*$',line[slashindex:]):
+    if re.search('/.* .*$', line[slashindex:]):
         command = line[slashindex+1:slashindex + line[slashindex:].find(' ')].rstrip()
     else:
         command = line[slashindex+1:].rstrip()
 
+    # Since all lines with the word "issued" are sent to this functions, the != 'INFO]:' is there to ignore the lines
+    # that just say "teleport issued" as a server message.
     if command is not '' and command != 'INFO]:':
         command_count[command] = command_count.get(command, 0) + 1
 
 
 def death_checker(line):
-    # check for player deaths and their causes
+    """ This function checks a given line for certain player deaths and calculates the number of each death type that
+    occurred."""
     if re.search('Zombie$', line):
         # I'm sure this is bad practice, as global vars are bad, I'll fix it later maybe
         death_checker.zombie_kills += 1
@@ -71,6 +74,8 @@ death_checker.lava_kills = 0
 
 
 def scan_file(lines, file):
+    """This is the general line scanning function. It checks for the different types of lines and deals with the
+    line accordingly."""
 
     for line in lines:
 
@@ -117,8 +122,9 @@ def scan_file(lines, file):
             death_checker(line)
 
 
-def read_files(files):
-
+def read_files(path):
+    """This function reads in the logfiles from the specified path"""
+    files = sorted(glob.glob(path))
     for file in files:
         file_size = os.path.getsize(file)
         # For storing each line in a file in a list
@@ -131,23 +137,27 @@ def read_files(files):
 
 
 def write_to_file(output_lines, filename):
+    """This function writes a list of lines to a file"""
     output_file = open(filename, 'a', encoding='utf-8')
-    for chat_line in output_lines:
-        output_file.write(chat_line)
+    for line in output_lines:
+        output_file.write(line)
     output_file.close()
 
 
 def sort_dict(dictionary):
+    """This function converts a dictionary to a list of tuples sorted by the dictionary's values from greatest to
+    least."""
     return sorted(dictionary.items(), key=operator.itemgetter(1), reverse=True)
 
 
 def print_top_10(list_of_tuples, spacing):
+    """This function prints the first 10 values in a list of tuples"""
     count = 1
-    for item in list_of_tuples[:20]:
+    for item in list_of_tuples[:10]:
         print(str(count).ljust(3), item[0].ljust(spacing), item[1])
         count += 1
 
-read_files(files)
+read_files(all_logs_path)
 
 
 # Uncomment these to write chat messages to a .txt.gz file
@@ -158,7 +168,10 @@ sorted_join_times = sort_dict(popular_time)
 sorted_players_by_chat_messages = sort_dict(player_chat_count)
 sorted_commands = sort_dict(command_count)
 
+# This is used for seeing how long the script took to run
 end_time = time.time()
+
+# Displaying all the gathered information:
 
 print('\nMost popular join hours:\n')
 for join_time in sorted_join_times:
