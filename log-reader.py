@@ -15,12 +15,11 @@ popular_time = {'00': 0, '01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 0, '
                 '22': 0, '23': 0}
 
 # stores all players that have logged on
-players = []
+players = {}
 
 chat_output_lines = []
 start_time = time.time()
 
-player_chat_count = {}
 command_count = {}
 
 chat_line_count = 0
@@ -92,26 +91,24 @@ def scan_file(lines, file):
                 chat_line_count += 1
                 global chat_output_lines
                 chat_line = date_stamp + ' ' + time_stamp + '\t' + player_name + ': ' + message_content + '\n'
-                global player_chat_count
-                if player_name not in player_chat_count.keys():
-                    player_chat_count[player_name] = 0
-                player_chat_count[player_name] += 1
+                global players
+                if player_name not in players.keys():
+                    players[player_name] = {'chat_count': 0, 'deaths': 0}
+                players[player_name]['chat_count'] += 1
                 chat_output_lines.append(chat_line)
 
         # regex to look for lines where player joins server
         elif re.search(r'^.*Authenticator #\d{1,10}/INFO\]: UUID of player.*$', line):
 
             time_stamp = line[:10]
-
+            global players
             # probably a better way to do this, but it scans through the line to find the location of the player name
             player = line[line.find('UUID') + 15:line.find(' is ')]
-            if player not in players:  # if player isn't already in list
-                    players.append(player)
-                    global player_chat_count
-                    player_chat_count.fromkeys(players, 0)
+            if player not in players.keys():  # if player isn't already in list
                     hour_joined = time_stamp[1:3]
                     popular_time[hour_joined] += 1
-                    # print(player.ljust(20), date_joined, time_joined)
+
+                    players[player] = {'chat_count': 0, 'deaths': 0}
 
         # check if it's a command
         elif re.search('issued', line):
@@ -119,7 +116,14 @@ def scan_file(lines, file):
 
         # If it isn't a chat message, check for player deaths:
         elif '<' not in line:
-            death_checker(line)
+            first_word = line[33:].split(' ', 1)[0]
+
+            # There is currently an error here, this is for testing all the lines that begin with a player's name
+            if first_word in players.keys():
+                print(line)
+                second_word = line[33:].split(' ', 2)[1]
+                print(first_word, '    ', second_word)
+                death_checker(line)
 
 
 def read_files(path):
@@ -157,7 +161,7 @@ def print_top_10(list_of_tuples, spacing):
         print(str(count).ljust(3), item[0].ljust(spacing), item[1])
         count += 1
 
-read_files(all_logs_path)
+read_files(sample_logs_path)
 
 
 # Uncomment these to write chat messages to a .txt.gz file
@@ -165,7 +169,7 @@ read_files(all_logs_path)
 # compress_utf8_file('./chat-history.txt')
 
 sorted_join_times = sort_dict(popular_time)
-sorted_players_by_chat_messages = sort_dict(player_chat_count)
+#sorted_players_by_chat_messages = sort_dict(players[:]['chat_count'])
 sorted_commands = sort_dict(command_count)
 
 # This is used for seeing how long the script took to run
@@ -178,7 +182,7 @@ for join_time in sorted_join_times:
     print(join_time[0], '  ', join_time[1])
 
 print('\nMost chat messages:\n')
-print_top_10(sorted_players_by_chat_messages, 20)
+#print_top_10(sorted_players_by_chat_messages, 20)
 
 print('\nMost common commands:\n')
 print_top_10(sorted_commands, 20)
