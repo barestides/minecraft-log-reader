@@ -5,6 +5,7 @@ import os
 import time
 import codecs
 import operator
+import sys
 
 all_logs_path = '/home/braden/Documents/ArcaneSurvival/logs/*.log.gz'
 sample_logs_path = './sample-logs/*.log.gz'
@@ -14,7 +15,10 @@ popular_time = {'00': 0, '01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 0, '
                 '11': 0, '12': 0, '13': 0, '14': 0, '15': 0, '16': 0, '17': 0, '18': 0, '19': 0, '20': 0, '21': 0,
                 '22': 0, '23': 0}
 
+# Global Vars
 # stores all players that have logged on
+write_to_file_bool = False
+
 players = {}
 
 chat_output_lines = []
@@ -56,20 +60,24 @@ def death_checker(line):
     """ This function checks a given line for certain player deaths and calculates the number of each death type that
     occurred."""
     if re.search('Zombie$', line):
-        # I'm sure this is bad practice, as global vars are bad, I'll fix it later maybe
-        death_checker.zombie_kills += 1
+        death_checker.deaths['zombie'] += 1
+
     elif re.search('Skeleton$', line):
         if 'Wither' not in line:
-            death_checker.skel_kills += 1
-    elif re.search('place$', line) or re.search('hard$', line):
-        death_checker.fall_kills += 1
-    elif re.search('in lava$', line):
-        death_checker.lava_kills += 1
+            death_checker.deaths['skel'] += 1
 
-death_checker.zombie_kills = 0
-death_checker.skel_kills = 0
-death_checker.fall_kills = 0
-death_checker.lava_kills = 0
+    elif re.search('place$', line) or re.search('hard$', line):
+        death_checker.deaths['fall'] += 1
+
+    elif re.search('in lava$', line):
+        death_checker.deaths['lava'] += 1
+
+    elif re.search('by Creeper$', line):
+        death_checker.deaths['creeper'] += 1
+
+    else:
+        print(line)
+death_checker.deaths = {'zombie': 0, 'skel': 0, 'fall': 0, 'lava': 0, 'creeper': 0}
 
 
 def scan_file(lines, file):
@@ -108,6 +116,7 @@ def scan_file(lines, file):
                     hour_joined = time_stamp[1:3]
                     popular_time[hour_joined] += 1
 
+                    player = player.replace(' ', '')
                     players[player] = {'chat_count': 0, 'deaths': 0}
 
         # check if it's a command
@@ -116,14 +125,19 @@ def scan_file(lines, file):
 
         # If it isn't a chat message, check for player deaths:
         elif '<' not in line:
-            first_word = line[33:].split(' ', 1)[0]
+            line = line[33:]
+            first_word = line.split(' ', 1)[0]
 
-            # There is currently an error here, this is for testing all the lines that begin with a player's name
-            if first_word in players.keys():
-                print(line)
-                second_word = line[33:].split(' ', 2)[1]
-                print(first_word, '    ', second_word)
-                death_checker(line)
+            # this is for testing all the lines that begin with a player's name
+            if first_word in players.keys() and first_word is not '':
+                second_word = line.split(' ', 2)[1]
+                # print(second_word)
+
+                other_second_word_options = ['left', 'lost', 'has', 'moved', 'mined', 'slapped']
+
+                if second_word not in other_second_word_options:
+                    players[first_word]['deaths'] += 1
+                    death_checker(line)
 
 
 def read_files(path):
@@ -164,13 +178,19 @@ def print_top_10(list_of_tuples, spacing):
 read_files(sample_logs_path)
 
 
-# Uncomment these to write chat messages to a .txt.gz file
-# write_to_file(chat_output_lines, 'chat-history.txt')
-# compress_utf8_file('./chat-history.txt')
+if write_to_file_bool:
+    write_to_file(chat_output_lines, 'chat-history.txt')
+    compress_utf8_file('./chat-history.txt')
 
 sorted_join_times = sort_dict(popular_time)
-#sorted_players_by_chat_messages = sort_dict(players[:]['chat_count'])
+# sorted_players_by_chat_messages = sort_dict(players[:]['chat_count'])
 sorted_commands = sort_dict(command_count)
+
+# Calculate total deaths
+death_sum = 0
+for player in players:
+    death_sum += players[player]['deaths']
+
 
 # This is used for seeing how long the script took to run
 end_time = time.time()
@@ -182,14 +202,14 @@ for join_time in sorted_join_times:
     print(join_time[0], '  ', join_time[1])
 
 print('\nMost chat messages:\n')
-#print_top_10(sorted_players_by_chat_messages, 20)
+# print_top_10(sorted_players_by_chat_messages, 20)
 
 print('\nMost common commands:\n')
 print_top_10(sorted_commands, 20)
 
-print('\nZombie Kill Count: ', death_checker.zombie_kills)
-print('Skeleton Kill Count: ', death_checker.skel_kills)
-print('Fall Kill Count: ', death_checker.fall_kills)
-print('Lava Kill Count: ', death_checker.lava_kills)
+print('\nTotal Player Deaths: ', death_sum, '\nZombie Kill Count: ', death_checker.deaths['zombie'],
+      '\nSkeleton Kill Count: ', death_checker.deaths['skel'],'\nFall Kills: ', death_checker.deaths['fall'],
+      '\nLava Kills: ', death_checker.deaths['lava'], '\nCreeper Kills: ', death_checker.deaths['creeper'])
+
 print('Total chat line count: ', chat_line_count)
 print('Players: ', len(players), '\nTotal time: ', '%.4f' % (end_time-start_time))
