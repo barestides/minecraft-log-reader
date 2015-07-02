@@ -1,7 +1,12 @@
-A script designed to pull interesting information from the server logs.
+A script designed to pull interesting information from minecraft server logs.
 Currently tracks:
-* player logins (time of day)
+* Player Login count and time of first login
+* Number of deaths for each player (in progress)
+* Amount of chat messages by player
 * number of players killed by:
-  * zombies
-  * skeletons
+  * Zombies
+  * Skeletons
+  * Creepers
+  * Fall damage
+  * Lava
 

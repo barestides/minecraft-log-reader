@@ -75,9 +75,37 @@ def death_checker(line):
     elif re.search('by Creeper$', line):
         death_checker.deaths['creeper'] += 1
 
+    elif re.search('Cave Spider$', line):
+        death_checker.deaths['cave_spider'] += 1
+
+    elif re.search('Spider$', line):
+        death_checker.deaths['spider'] += 1
+
+    elif re.search('drowned$', line):
+        death_checker.deaths['drowned'] += 1
+
+    elif re.search('wall$', line):
+        death_checker.deaths['wall'] += 1
+
+    elif re.search('Enderman$', line):
+        death_checker.deaths['ender'] += 1
+
+    elif re.search('world$', line):
+        death_checker.deaths['fell_out'] += 1
+
+    elif re.search('lightning$', line):
+        death_checker.deaths['lightning'] += 1
+
+    elif re.search('Blaze$', line):
+        death_checker.deaths['blaze'] += 1
+
     else:
         print(line)
-death_checker.deaths = {'zombie': 0, 'skel': 0, 'fall': 0, 'lava': 0, 'creeper': 0}
+        death_checker.remaining += 1
+
+death_checker.remaining = 0
+death_checker.deaths = {'zombie': 0, 'skel': 0, 'fall': 0, 'lava': 0, 'creeper': 0, 'ender': 0, 'blaze': 0,
+                        'cave_spider': 0, 'spider': 0, 'drowned': 0, 'wall': 0, 'fell_out': 0, 'lightning': 0}
 
 
 def scan_file(lines, file):
@@ -135,7 +163,7 @@ def scan_file(lines, file):
 
                 other_second_word_options = ['left', 'lost', 'has', 'moved', 'mined', 'slapped']
 
-                if second_word not in other_second_word_options:
+                if second_word not in other_second_word_options and not re.search('(frozen|long)!$', line):
                     players[first_word]['deaths'] += 1
                     death_checker(line)
 
@@ -175,7 +203,7 @@ def print_top_10(list_of_tuples, spacing):
         print(str(count).ljust(3), item[0].ljust(spacing), item[1])
         count += 1
 
-read_files(sample_logs_path)
+read_files(all_logs_path)
 
 
 if write_to_file_bool:
@@ -207,9 +235,13 @@ print('\nMost chat messages:\n')
 print('\nMost common commands:\n')
 print_top_10(sorted_commands, 20)
 
-print('\nTotal Player Deaths: ', death_sum, '\nZombie Kill Count: ', death_checker.deaths['zombie'],
-      '\nSkeleton Kill Count: ', death_checker.deaths['skel'],'\nFall Kills: ', death_checker.deaths['fall'],
-      '\nLava Kills: ', death_checker.deaths['lava'], '\nCreeper Kills: ', death_checker.deaths['creeper'])
 
-print('Total chat line count: ', chat_line_count)
+# Print Death Distribution
+print('\nKills:')
+for item in death_checker.deaths:
+    print(item.ljust(15), death_checker.deaths[item])
+
+print('\nRemaining deaths: ', death_checker.remaining)
+
+print('\nTotal chat line count: ', chat_line_count)
 print('Players: ', len(players), '\nTotal time: ', '%.4f' % (end_time-start_time))
