@@ -58,54 +58,125 @@ def command_checker(line):
 
 def death_checker(line):
     """ This function checks a given line for certain player deaths and calculates the number of each death type that
-    occurred."""
-    if re.search('Zombie$', line):
-        death_checker.deaths['zombie'] += 1
+    occurred.
+    "Tried to swim in lava" deaths count as lava deaths even if they were "trying to escape". However deaths where
+     the player "burnt to a crisp" while fighting 'x' count as pvp deaths."""
 
-    elif re.search('Skeleton$', line):
-        if 'Wither' not in line:
-            death_checker.deaths['skel'] += 1
+    # TODO, dynamically change the order that these lines are checked by checking the rate at which each death
+    # type increases. And scanning the future lines starting with the most common death type.
 
-    elif re.search('place$', line) or re.search('hard$', line):
+    add_to_deaths = True
+
+    (player, line) = line.split(' ', 1)
+
+    if re.search('(place|hard|vines|ladder)$', line):
         death_checker.deaths['fall'] += 1
 
-    elif re.search('in lava$', line):
-        death_checker.deaths['lava'] += 1
+    elif re.search(' Zombie$', line):
+        death_checker.deaths['zombie'] += 1
 
     elif re.search('by Creeper$', line):
         death_checker.deaths['creeper'] += 1
 
+    elif re.search('Skeleton$', line):
+        death_checker.deaths['skel'] += 1
+
+    elif re.search('wither', line, re.IGNORECASE):
+        death_checker.deaths['wither'] += 1
+
+    elif re.search(' in lava', line):
+        death_checker.deaths['lava'] += 1
+
+    elif re.search('died$', line):
+        death_checker.deaths['died'] += 1
+
+    elif re.search('starved', line):
+        death_checker.deaths['starve'] += 1
+
+    elif re.search('(flames|burned|walked into fire)', line):
+        death_checker.deaths['burned'] += 1
+
     elif re.search('Cave Spider$', line):
         death_checker.deaths['cave_spider'] += 1
+
+    elif re.search('^blew', line):
+        death_checker.deaths['blew_up'] += 1
+
+    elif re.search('Pigman', line):
+        death_checker.deaths['pigman'] += 1
 
     elif re.search('Spider$', line):
         death_checker.deaths['spider'] += 1
 
-    elif re.search('drowned$', line):
+    elif re.search('drowned', line):
         death_checker.deaths['drowned'] += 1
 
     elif re.search('wall$', line):
         death_checker.deaths['wall'] += 1
 
+    elif re.search('Golem', line):
+        death_checker.deaths['golem'] += 1
+
     elif re.search('Enderman$', line):
         death_checker.deaths['ender'] += 1
+
+    elif re.search('Guardian', line):
+        death_checker.deaths['guardian'] += 1
+
+    elif re.search('Witch', line):
+        death_checker.deaths['witch'] += 1
+
+    elif re.search(' Slime', line):
+        death_checker.deaths['slime'] += 1
+
+    elif re.search('Ghast', line):
+        death_checker.deaths['ghast'] += 1
 
     elif re.search('world$', line):
         death_checker.deaths['fell_out'] += 1
 
-    elif re.search('lightning$', line):
-        death_checker.deaths['lightning'] += 1
-
     elif re.search('Blaze$', line):
         death_checker.deaths['blaze'] += 1
 
+    elif re.search('pricked', line):
+        death_checker.deaths['cactus'] += 1
+
+    elif re.search('anvil', line):
+        death_checker.deaths['anvil'] += 1
+
+    elif re.search('Cube', line):
+        death_checker.deaths['magmacube'] += 1
+
+    elif re.search('Endermite', line):
+        death_checker.deaths['endermite'] += 1
+
+    elif re.search('Silverfish', line):
+        death_checker.deaths['silverfish'] += 1
+
+    elif re.search('lightning$', line):
+        death_checker.deaths['lightning'] += 1
+
+    elif re.search('(was slain by | crisp |was shot by |was blown up by |was killed by .* using |was killed trying'
+                   ')', line):
+        death_checker.deaths['pvp'] += 1
+
+    elif re.search('killed by magic', line):
+        death_checker.deaths['magic'] += 1
+
     else:
-        print(line)
+        # Everything else that slipped through the initial filter (24 lines)
+        add_to_deaths = False
         death_checker.remaining += 1
+
+    if add_to_deaths:
+        players[player]['deaths'] += 1
 
 death_checker.remaining = 0
 death_checker.deaths = {'zombie': 0, 'skel': 0, 'fall': 0, 'lava': 0, 'creeper': 0, 'ender': 0, 'blaze': 0,
-                        'cave_spider': 0, 'spider': 0, 'drowned': 0, 'wall': 0, 'fell_out': 0, 'lightning': 0}
+                        'cave_spider': 0, 'spider': 0, 'drowned': 0, 'wall': 0, 'fell_out': 0, 'lightning': 0,
+                        'guardian': 0, 'starve': 0, 'died': 0, 'pigman': 0, 'golem': 0, 'burned': 0, 'wither': 0,
+                        'slime': 0, 'ghast': 0, 'witch': 0, 'magmacube': 0, 'pvp': 0, 'endermite': 0, 'silverfish': 0,
+                        'cactus': 0, 'anvil': 0, 'blew_up': 0, 'magic': 0}
 
 
 def scan_file(lines, file):
@@ -129,7 +200,7 @@ def scan_file(lines, file):
                 chat_line = date_stamp + ' ' + time_stamp + '\t' + player_name + ': ' + message_content + '\n'
                 global players
                 if player_name not in players.keys():
-                    players[player_name] = {'chat_count': 0, 'deaths': 0}
+                    players[player_name] = {'chat_count': 0, 'deaths': 0, 'kills': 0}
                 players[player_name]['chat_count'] += 1
                 chat_output_lines.append(chat_line)
 
@@ -140,12 +211,12 @@ def scan_file(lines, file):
             global players
             # probably a better way to do this, but it scans through the line to find the location of the player name
             player = line[line.find('UUID') + 15:line.find(' is ')]
-            if player not in players.keys():  # if player isn't already in list
+            if player not in players.keys():  # if player isn't already in dict
                     hour_joined = time_stamp[1:3]
                     popular_time[hour_joined] += 1
 
                     player = player.replace(' ', '')
-                    players[player] = {'chat_count': 0, 'deaths': 0}
+                    players[player] = {'chat_count': 0, 'deaths': 0, 'kills': 0}
 
         # check if it's a command
         elif re.search('issued', line):
@@ -156,15 +227,13 @@ def scan_file(lines, file):
             line = line[33:]
             first_word = line.split(' ', 1)[0]
 
-            # this is for testing all the lines that begin with a player's name
             if first_word in players.keys() and first_word is not '':
+
                 second_word = line.split(' ', 2)[1]
-                # print(second_word)
+                non_death_second_word_options = ['left', 'has', 'lost','moved', 'mined', 'slapped', 'joined',
+                'kicked', 'just', 'dropped', 'had', 'never']
 
-                other_second_word_options = ['left', 'lost', 'has', 'moved', 'mined', 'slapped']
-
-                if second_word not in other_second_word_options and not re.search('(frozen|long)!$', line):
-                    players[first_word]['deaths'] += 1
+                if second_word not in non_death_second_word_options and not re.search('(frozen|long|muted|visible).$', line):
                     death_checker(line)
 
 
@@ -235,13 +304,16 @@ print('\nMost chat messages:\n')
 print('\nMost common commands:\n')
 print_top_10(sorted_commands, 20)
 
+death_checker.deaths = sort_dict(death_checker.deaths)
 
 # Print Death Distribution
-print('\nKills:')
+print('\nDeaths:')
 for item in death_checker.deaths:
-    print(item.ljust(15), death_checker.deaths[item])
+    print(item[0].ljust(14), item[1])
 
 print('\nRemaining deaths: ', death_checker.remaining)
+
+print('Total Deaths: ', death_sum)
 
 print('\nTotal chat line count: ', chat_line_count)
 print('Players: ', len(players), '\nTotal time: ', '%.4f' % (end_time-start_time))
