@@ -6,6 +6,7 @@ import time
 import codecs
 import operator
 import sys
+from datetime import datetime
 
 all_logs_path = '/home/braden/Documents/ArcaneSurvival/logs/*.log.gz'
 sample_logs_path = './sample-logs/*.log.gz'
@@ -16,9 +17,9 @@ popular_time = {'00': 0, '01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 0, '
                 '22': 0, '23': 0}
 
 # Global Vars
-# stores all players that have logged on
 write_to_file_bool = False
 
+# Stores information about every player that has logged on:
 players = {}
 
 chat_output_lines = []
@@ -186,7 +187,7 @@ def scan_file(lines, file):
     for line in lines:
 
         file_name = os.path.basename(file)
-        date_stamp = file_name[:-7]
+        date_stamp = file_name[:-9]
 
         # Check for chat message
         if re.search(r'^.*/INFO\]:( \[.{1,20}\] | )<..*>.*$', line):
@@ -200,23 +201,27 @@ def scan_file(lines, file):
                 chat_line = date_stamp + ' ' + time_stamp + '\t' + player_name + ': ' + message_content + '\n'
                 global players
                 if player_name not in players.keys():
-                    players[player_name] = {'chat_count': 0, 'deaths': 0, 'kills': 0}
+                    players[player_name] = {'chat_count': 0, 'deaths': 0, 'kills': 0, 'play_time': 0,
+                                            'temp_join_time': 0, 'join_count': 0}
                 players[player_name]['chat_count'] += 1
                 chat_output_lines.append(chat_line)
 
         # regex to look for lines where player joins server
         elif re.search(r'^.*Authenticator #\d{1,10}/INFO\]: UUID of player.*$', line):
+            time_stamp = line[1:9]
+            date_time_string = date_stamp + ' ' + time_stamp
+            date_object = datetime.strptime(date_time_string, '%Y-%m-%d %H:%M:%S')
 
-            time_stamp = line[:10]
             global players
             # probably a better way to do this, but it scans through the line to find the location of the player name
             player = line[line.find('UUID') + 15:line.find(' is ')]
             if player not in players.keys():  # if player isn't already in dict
-                    hour_joined = time_stamp[1:3]
+                    hour_joined = time_stamp[:2]
                     popular_time[hour_joined] += 1
-
-                    player = player.replace(' ', '')
-                    players[player] = {'chat_count': 0, 'deaths': 0, 'kills': 0}
+                    players[player] = {'chat_count': 0, 'deaths': 0, 'kills': 0, 'play_time': 0,
+                                       'temp_join_time': date_object.timestamp(), 'join_count': 1}
+            else:
+                players[player]['temp_join_time'] = date_object.timestamp()
 
         # check if it's a command
         elif re.search('issued', line):
@@ -224,17 +229,33 @@ def scan_file(lines, file):
 
         # If it isn't a chat message, check for player deaths:
         elif '<' not in line:
-            line = line[33:]
-            first_word = line.split(' ', 1)[0]
+
+            action = line[33:]
+            first_word = action.split(' ', 1)[0]
 
             if first_word in players.keys() and first_word is not '':
 
-                second_word = line.split(' ', 2)[1]
-                non_death_second_word_options = ['left', 'has', 'lost','moved', 'mined', 'slapped', 'joined',
-                'kicked', 'just', 'dropped', 'had', 'never']
+                time_stamp = line[1:9]
+                date_time_string = date_stamp + ' ' + time_stamp
+                date_object = datetime.strptime(date_time_string, '%Y-%m-%d %H:%M:%S')
 
-                if second_word not in non_death_second_word_options and not re.search('(frozen|long|muted|visible).$', line):
-                    death_checker(line)
+                second_word = action.split(' ', 2)[1]
+                non_death_second_word_options = ['left', 'has', 'lost', 'moved', 'mined', 'slapped', 'joined',
+                                                'kicked', 'just', 'dropped', 'had', 'never']
+
+                if second_word not in non_death_second_word_options and not re.search('(frozen|long|muted|visible).$',
+                                                                                      action):
+                    death_checker(action)
+
+                elif re.search('^lost connection', action.split(' ', 1)[1]):
+                    join_time = players[first_word]['temp_join_time']
+                    leave_time = date_object.timestamp()
+
+                    if join_time!= -1:
+                        players[first_word]['play_time'] += (leave_time - join_time)/3600
+                        players[first_word]['temp_join_time'] = -1
+                        players[first_word]['join_count'] += 1
+
 
 
 def read_files(path):
@@ -272,6 +293,14 @@ def print_top_10(list_of_tuples, spacing):
         print(str(count).ljust(3), item[0].ljust(spacing), item[1])
         count += 1
 
+
+def sort_players(sort_param):
+    param_dict = {}
+    for item in players:
+        param_dict[item] = players[item][sort_param]
+    return sort_dict(param_dict)
+
+
 read_files(all_logs_path)
 
 
@@ -280,6 +309,7 @@ if write_to_file_bool:
     compress_utf8_file('./chat-history.txt')
 
 sorted_join_times = sort_dict(popular_time)
+
 # sorted_players_by_chat_messages = sort_dict(players[:]['chat_count'])
 sorted_commands = sort_dict(command_count)
 
@@ -288,23 +318,26 @@ death_sum = 0
 for player in players:
     death_sum += players[player]['deaths']
 
+death_checker.deaths = sort_dict(death_checker.deaths)
 
 # This is used for seeing how long the script took to run
 end_time = time.time()
 
 # Displaying all the gathered information:
 
+print('\nMost play time (hours):\n')
+print_top_10(sort_players('play_time'), 15)
+
 print('\nMost popular join hours:\n')
 for join_time in sorted_join_times:
     print(join_time[0], '  ', join_time[1])
 
-print('\nMost chat messages:\n')
+# Temporarily disabled to due to change in how messages are stored.
+# print('\nMost chat messages:\n')
 # print_top_10(sorted_players_by_chat_messages, 20)
 
 print('\nMost common commands:\n')
-print_top_10(sorted_commands, 20)
-
-death_checker.deaths = sort_dict(death_checker.deaths)
+print_top_10(sorted_commands, 15)
 
 # Print Death Distribution
 print('\nDeaths:')
