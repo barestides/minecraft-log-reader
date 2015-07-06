@@ -188,7 +188,6 @@ def scan_file(lines, file):
 
         file_name = os.path.basename(file)
         date_stamp = file_name[:-9]
-
         # Check for chat message
         if re.search(r'^.*/INFO\]:( \[.{1,20}\] | )<..*>.*$', line):
             time_stamp = line[:10]
@@ -257,7 +256,6 @@ def scan_file(lines, file):
                         players[first_word]['join_count'] += 1
 
 
-
 def read_files(path):
     """This function reads in the logfiles from the specified path"""
     files = sorted(glob.glob(path))
@@ -303,6 +301,16 @@ def sort_players(sort_param):
 
 read_files(all_logs_path)
 
+# Calculate total deaths and make output
+output_lines = ['Player\tDeaths\tChat Count\tPlay Time\tJoin Count\n']
+death_sum = 0
+for player in players:
+    death_sum += players[player]['deaths']
+    line = player + '\t' + str(players[player]['deaths']) + '\t' + str(players[player]['chat_count']) + '\t' \
+           + str(players[player]['play_time']) + '\t' + str(players[player]['join_count']) + '\n'
+
+    output_lines.append(line)
+write_to_file(output_lines, 'playerdata.txt')
 
 if write_to_file_bool:
     write_to_file(chat_output_lines, 'chat-history.txt')
@@ -312,11 +320,6 @@ sorted_join_times = sort_dict(popular_time)
 
 # sorted_players_by_chat_messages = sort_dict(players[:]['chat_count'])
 sorted_commands = sort_dict(command_count)
-
-# Calculate total deaths
-death_sum = 0
-for player in players:
-    death_sum += players[player]['deaths']
 
 death_checker.deaths = sort_dict(death_checker.deaths)
 
