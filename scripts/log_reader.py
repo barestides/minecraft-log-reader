@@ -6,10 +6,11 @@ import time
 import codecs
 import operator
 import sys
+from pymongo import MongoClient
 from datetime import datetime
 
 all_logs_path = '/home/braden/Documents/ArcaneSurvival/logs/*.log.gz'
-sample_logs_path = './sample-logs/*.log.gz'
+sample_logs_path = '../sample-logs/*.log.gz'
 
 # this dict is for storing the number of players that joined each hour
 popular_time = {'00': 0, '01': 0, '02': 0, '03': 0, '04': 0, '05': 0, '06': 0, '07': 0, '08': 0, '09': 0, '10': 0,
@@ -69,7 +70,6 @@ def death_checker(line):
     add_to_deaths = True
 
     (player, line) = line.split(' ', 1)
-
     if re.search('(place|hard|vines|ladder)$', line):
         death_checker.deaths['fall'] += 1
 
@@ -298,58 +298,73 @@ def sort_players(sort_param):
         param_dict[item] = players[item][sort_param]
     return sort_dict(param_dict)
 
+def display_info():
+    # Displaying all the gathered information:
+
+    print('\nMost play time (hours):\n')
+    print_top_10(sort_players('play_time'), 15)
+
+    print('\nMost popular join hours:\n')
+    for join_time in sorted_join_times:
+        print(join_time[0], '  ', join_time[1])
+
+    # Temporarily disabled to due to change in how messages are stored.
+    # print('\nMost chat messages:\n')
+    # print_top_10(sorted_players_by_chat_messages, 20)
+
+    print('\nMost common commands:\n')
+    print_top_10(sorted_commands, 15)
+
+    # Print Death Distribution
+    print('\nDeaths:')
+    for item in death_checker.deaths:
+        print(item[0].ljust(14), item[1])
+
+    print('\nRemaining deaths: ', death_checker.remaining)
+
+    print('Total Deaths: ', death_sum)
+
+    print('\nTotal chat line count: ', chat_line_count)
+    print('Players: ', len(players), '\nTotal time: ', '%.4f' % (end_time-start_time))
+
 
 read_files(all_logs_path)
 
-# Calculate total deaths and make output
-output_lines = ['Player\tDeaths\tChat Count\tPlay Time\tJoin Count\n']
-death_sum = 0
+client = MongoClient()
+db = client['players_db']
+collection = db['players_coll']
+
 for player in players:
-    death_sum += players[player]['deaths']
-    line = player + '\t' + str(players[player]['deaths']) + '\t' + str(players[player]['chat_count']) + '\t' \
-           + str(players[player]['play_time']) + '\t' + str(players[player]['join_count']) + '\n'
+    player_doc = {
+        'name': player,
+        'chat_count': players[player]['chat_count'],
+        'deaths': players[player]['deaths'],
+        'play_time': players[player]['play_time'],
+        'join_count': players[player]['join_count']
+        # 'avg_session_length': players[player]['play_time'] / players[player]['join_count']
+    }
 
-    output_lines.append(line)
-write_to_file(output_lines, 'playerdata.txt')
+    player_id = collection.insert_one(player_doc).inserted_id
 
-if write_to_file_bool:
-    write_to_file(chat_output_lines, 'chat-history.txt')
-    compress_utf8_file('./chat-history.txt')
 
-sorted_join_times = sort_dict(popular_time)
+# # Calculate total deaths and make output
+# death_sum = 0
+# for player in players:
+#     death_sum += players[player]['deaths']
+#
+# if write_to_file_bool:
+#     write_to_file(chat_output_lines, 'chat-history.txt')
+#     compress_utf8_file('./chat-history.txt')
+#
+# sorted_join_times = sort_dict(popular_time)
+#
+# # sorted_players_by_chat_messages = sort_dict(players[:]['chat_count'])
+# sorted_commands = sort_dict(command_count)
+#
+# death_checker.deaths = sort_dict(death_checker.deaths)
+#
+# # This is used for seeing how long the script took to run
+# end_time = time.time()
+#
+# display_info()
 
-# sorted_players_by_chat_messages = sort_dict(players[:]['chat_count'])
-sorted_commands = sort_dict(command_count)
-
-death_checker.deaths = sort_dict(death_checker.deaths)
-
-# This is used for seeing how long the script took to run
-end_time = time.time()
-
-# Displaying all the gathered information:
-
-print('\nMost play time (hours):\n')
-print_top_10(sort_players('play_time'), 15)
-
-print('\nMost popular join hours:\n')
-for join_time in sorted_join_times:
-    print(join_time[0], '  ', join_time[1])
-
-# Temporarily disabled to due to change in how messages are stored.
-# print('\nMost chat messages:\n')
-# print_top_10(sorted_players_by_chat_messages, 20)
-
-print('\nMost common commands:\n')
-print_top_10(sorted_commands, 15)
-
-# Print Death Distribution
-print('\nDeaths:')
-for item in death_checker.deaths:
-    print(item[0].ljust(14), item[1])
-
-print('\nRemaining deaths: ', death_checker.remaining)
-
-print('Total Deaths: ', death_sum)
-
-print('\nTotal chat line count: ', chat_line_count)
-print('Players: ', len(players), '\nTotal time: ', '%.4f' % (end_time-start_time))
