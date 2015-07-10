@@ -347,7 +347,7 @@ for player in players:
     player_id = collection.insert_one(player_doc).inserted_id
 
 
-# # Calculate total deaths and make output
+# Calculate total deaths and make output
 # death_sum = 0
 # for player in players:
 #     death_sum += players[player]['deaths']
